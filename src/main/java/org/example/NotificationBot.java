@@ -8,24 +8,32 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 public class NotificationBot extends TelegramLongPollingBot {
     private String USER_CHAT_ID;
     private String BOT_NAME;
     private String BOT_TOKEN;
 
+    // Lưu trữ danh sách chat ID của người dùng
+    private Set<String> userChatIds = new HashSet<>();
+
+    // Hàm nhận message từ người dùng
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             String chatId = update.getMessage().getChatId().toString();
 
-            // Xử lý tin nhắn từ user nếu cần
+            // Nếu người dùng gửi lệnh /start
             if (messageText.equals("/start")) {
+                // Thêm chat ID của người dùng vào danh sách
+                userChatIds.add(chatId);
                 SendMessage message = new SendMessage();
                 message.setChatId(chatId);
-                message.setText("Xin chào! Bot của bạn đã sẵn sàng.");
+                message.setText("Bạn đã bắt đầu nhận thông báo từ bot!");
 
                 try {
                     execute(message);
@@ -59,6 +67,21 @@ public class NotificationBot extends TelegramLongPollingBot {
             execute(message);
         } catch (TelegramApiException e) {
             e.printStackTrace();
+        }
+    }
+
+    // Hàm gửi thông báo đến tất cả các user đã start bot
+    public void sendNotificationToAllUsers(String notificationText) {
+        for (String chatId : userChatIds) {
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText(notificationText);
+
+            try {
+                execute(message);
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
         }
     }
 
