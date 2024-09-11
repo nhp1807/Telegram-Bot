@@ -1,5 +1,11 @@
 package org.example;
 
+import org.example.database.HibernateUtil;
+import org.example.entity.Service;
+import org.example.entity.User;
+import org.example.service.MainService;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
@@ -7,25 +13,65 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 public class Main {
     public static void main(String[] args) throws TelegramApiException {
-        TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
+//        TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
+//
+//        NotificationBot bot = new NotificationBot();
+//        bot.readPropertiesFile();
+//
+//        try {
+//            botsApi.registerBot(bot);
+//        } catch (TelegramApiException e) {
+//            e.printStackTrace();
+//        }
+//
+//        while (true) {
+//            bot.checkConditionAndNotify();
+//
+//            try {
+//                Thread.sleep(10000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        MainService mainService = new MainService();
+//        mainService.createServiceWithUsers();
 
-        NotificationBot bot = new NotificationBot();
-        bot.readPropertiesFile();
+        // Mở session từ Hibernate
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
 
-        try {
-            botsApi.registerBot(bot);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
+        // Tạo các đối tượng User
+        User user1 = new User("user1");
+        User user2 = new User("user2");
 
-        while (true) {
-            bot.checkConditionAndNotify();
+        // Tạo đối tượng Service1 với user1 và user2
+        Service service1 = new Service("service1");
+        service1.getUsers().add(user1);
+        service1.getUsers().add(user2);
 
-            try {
-                Thread.sleep(10000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
+        // Thêm Service1 vào danh sách services của user1 và user2
+        user1.getServices().add(service1);
+        user2.getServices().add(service1);
+
+        // Lưu user1, user2 và service1 vào cơ sở dữ liệu
+        session.save(user1);
+        session.save(user2);
+        session.save(service1);
+
+        // Tạo đối tượng Service2 và chỉ thêm user2
+        Service service2 = new Service("service2");
+        service2.getUsers().add(user2);
+
+        // Thêm Service2 vào danh sách services của user2
+        user2.getServices().add(service2);
+
+        // Lưu service2 vào cơ sở dữ liệu
+        session.save(service2);
+
+        // Commit transaction
+        transaction.commit();
+
+        // Đóng session
+        session.close();
     }
 }

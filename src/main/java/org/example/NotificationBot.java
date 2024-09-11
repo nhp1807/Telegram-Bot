@@ -17,19 +17,15 @@ public class NotificationBot extends TelegramLongPollingBot {
     private String BOT_NAME;
     private String BOT_TOKEN;
 
-    // Lưu trữ danh sách chat ID của người dùng
     private Set<String> userChatIds = new HashSet<>();
 
-    // Hàm nhận message từ người dùng
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             String chatId = update.getMessage().getChatId().toString();
 
-            // Nếu người dùng gửi lệnh /start
             if (messageText.equals("/start")) {
-                // Thêm chat ID của người dùng vào danh sách
                 userChatIds.add(chatId);
                 SendMessage message = new SendMessage();
                 message.setChatId(chatId);
@@ -45,7 +41,7 @@ public class NotificationBot extends TelegramLongPollingBot {
     }
 
     public void checkConditionAndNotify() {
-        boolean condition = checkSomeCondition(); // Giả sử có một điều kiện nào đó
+        boolean condition = checkSomeCondition();
 
         if (condition) {
             sendNotificationToUser();
