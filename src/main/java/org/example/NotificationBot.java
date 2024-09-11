@@ -1,5 +1,9 @@
 package org.example;
 
+import org.example.database.HibernateUtil;
+import org.example.entity.User;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -24,8 +28,17 @@ public class NotificationBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             String chatId = update.getMessage().getChatId().toString();
+            String username = update.getMessage().getChat().getUserName();
 
             if (messageText.equals("/start")) {
+                // Mở session từ Hibernate
+                Session session = HibernateUtil.getSessionFactory().openSession();
+                Transaction transaction = session.beginTransaction();
+                User user = new User(Long.parseLong(chatId), username);
+                session.save(user);
+                transaction.commit();
+                session.close();
+
                 userChatIds.add(chatId);
                 SendMessage message = new SendMessage();
                 message.setChatId(chatId);

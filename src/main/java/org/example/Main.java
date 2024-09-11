@@ -10,42 +10,27 @@ import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
+import java.util.Date;
+
 
 public class Main {
     public static void main(String[] args) throws TelegramApiException {
-//        TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
-//
-//        NotificationBot bot = new NotificationBot();
-//        bot.readPropertiesFile();
-//
-//        try {
-//            botsApi.registerBot(bot);
-//        } catch (TelegramApiException e) {
-//            e.printStackTrace();
-//        }
-//
-//        while (true) {
-//            bot.checkConditionAndNotify();
-//
-//            try {
-//                Thread.sleep(10000);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        MainService mainService = new MainService();
-//        mainService.createServiceWithUsers();
+        sendNoticeTele();
+//        demoService();
 
+    }
+
+    public static void demoService(){
         // Mở session từ Hibernate
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
 
         // Tạo các đối tượng User
-        User user1 = new User("user1");
-        User user2 = new User("user2");
+        User user1 = new User(1L, "user1");
+        User user2 = new User(2L,"user2");
 
         // Tạo đối tượng Service1 với user1 và user2
-        Service service1 = new Service("service1");
+        Service service1 = new Service("service1", "token1", user1.getUsername(), System.currentTimeMillis(), System.currentTimeMillis());
         service1.getUsers().add(user1);
         service1.getUsers().add(user2);
 
@@ -59,7 +44,7 @@ public class Main {
         session.save(service1);
 
         // Tạo đối tượng Service2 và chỉ thêm user2
-        Service service2 = new Service("service2");
+        Service service2 = new Service("service2", "token2", user2.getUsername(), System.currentTimeMillis(), System.currentTimeMillis());
         service2.getUsers().add(user2);
 
         // Thêm Service2 vào danh sách services của user2
@@ -73,5 +58,28 @@ public class Main {
 
         // Đóng session
         session.close();
+    }
+
+    public static void sendNoticeTele() throws TelegramApiException {
+        TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
+
+        NotificationBot bot = new NotificationBot();
+        bot.readPropertiesFile();
+
+        try {
+            botsApi.registerBot(bot);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+
+        while (true) {
+            bot.checkConditionAndNotify();
+
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

@@ -13,11 +13,10 @@ import java.util.Set;
 @Table(name = "user")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String name;
+    private String username;
 
     @ManyToMany
     @JoinTable(
@@ -30,8 +29,9 @@ public class User {
     public User() {
     }
 
-    public User(String name) {
-        this.name = name;
+    public User(Long id,String username) {
+        this.id = id;
+        this.username = username;
     }
 }
 
