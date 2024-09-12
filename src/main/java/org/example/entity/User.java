@@ -1,5 +1,6 @@
 package org.example.entity;
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -15,7 +16,7 @@ public class User {
     @Id
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "username", nullable = false, unique = true)
     private String username;
 
     @ManyToMany

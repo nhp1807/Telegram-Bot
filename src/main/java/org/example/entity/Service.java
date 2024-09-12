@@ -1,9 +1,11 @@
 package org.example.entity;
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 import jakarta.persistence.*;
+import org.example.enums.Category;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -17,15 +19,17 @@ public class Service {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(nullable = false, unique = true)
+    @Column(name = "name", nullable = false, unique = true)
     private String name;
-    @Column(nullable = false)
+    @Column(name = "category", nullable = false)
+    private Category category;
+    @Column(name = "token", nullable = false)
     private String token;
-    @Column(nullable = false)
+    @Column(name = "owner", nullable = false)
     private String owner;
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private Long createdAt;
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Long updatedAt;
     @ManyToMany(mappedBy = "services")
     private Set<User> users = new HashSet<>();
@@ -33,8 +37,9 @@ public class Service {
     public Service() {
     }
 
-    public Service(String name, String token, String owner, Long createdAt, Long updatedAt) {
+    public Service(String name, Category category, String token, String owner, Long createdAt, Long updatedAt) {
         this.name = name;
+        this.category = category;
         this.token = token;
         this.owner = owner;
         this.createdAt = createdAt;
