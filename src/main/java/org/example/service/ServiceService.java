@@ -150,7 +150,14 @@ public class ServiceService {
 
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
-        message.setText("Xác nhận đã nhận dữ liệu thành công!");
+        message.setText("Xác nhận email thành công!");
+
+        try {
+            NotificationBot bot = new NotificationBot();
+            bot.sendMessage(message.getText(), chatId);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         response.status(200);
         return "Dữ liệu đã được gửi.";

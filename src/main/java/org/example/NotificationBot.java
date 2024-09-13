@@ -55,9 +55,9 @@ public class NotificationBot extends TelegramLongPollingBot {
         }
     }
 
-    public void sendMessage(String input, String chatId) {
+    public void sendMessage(String text, String chatId) {
         SendMessage message = new SendMessage();
-        message.setText(input);
+        message.setText(text);
         message.setChatId(chatId);
         try {
             execute(message);
