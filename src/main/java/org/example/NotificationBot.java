@@ -28,13 +28,14 @@ public class NotificationBot extends TelegramLongPollingBot {
             String username = update.getMessage().getChat().getUserName();
 
             if (messageText.equals("/start")) {
-                sendMessage("Bạn đã bắt đầu nhận thông báo từ bot!");
-                sendMessage("Hãy nhập email mà bạn đã đăng ký Budibase!");
+                sendMessage("Bạn đã bắt đầu nhận thông báo từ bot!", chatId);
+                sendMessage("Sử dụng /help để được hỗ trợ", chatId);
+                sendMessage("Hãy nhập email mà bạn đã đăng ký Budibase!", chatId);
             } else if (messageText.contains("@tech.admicro.vn")) {
                 String output = "Bạn đã đăng ký bằng email: " + messageText + ", hãy vào email để xác nhận!";
 
                 SendMailConfirm sendMailConfirm = new SendMailConfirm();
-                sendMailConfirm.sendMail(chatId);
+                sendMailConfirm.sendMail(chatId, messageText);
 
                 Session session = HibernateUtil.getSessionFactory().openSession();
                 Transaction transaction = session.beginTransaction();
@@ -43,15 +44,21 @@ public class NotificationBot extends TelegramLongPollingBot {
                 transaction.commit();
                 session.close();
 
-                sendMessage(output);
+                sendMessage(output, chatId);
+            } else if (messageText.equals("/help")) {
+                String output = "/change_email: Đổi email đã đăng ký";
+                sendMessage(output, chatId);
+            } else if (messageText.equals("/change_email")) {
+                sendMessage("Hãy nhập email mà bạn đã đăng ký Budibase!", chatId);
             }
 
         }
     }
 
-    public void sendMessage(String input) {
+    public void sendMessage(String input, String chatId) {
         SendMessage message = new SendMessage();
         message.setText(input);
+        message.setChatId(chatId);
         try {
             execute(message);
         } catch (TelegramApiException e) {

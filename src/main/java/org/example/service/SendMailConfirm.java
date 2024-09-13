@@ -19,7 +19,7 @@ public class SendMailConfirm {
 
     }
 
-    public void sendMail(String chatId){
+    public void sendMail(String chatId, String sendTo){
         readPropertiesFile();
 
         // Cấu hình các thuộc tính cho phiên email
@@ -40,14 +40,14 @@ public class SendMailConfirm {
         try {
             // Tạo đối tượng tin nhắn
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress("nhp1807@gmail.com")); // Địa chỉ người gửi
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse("nhp1807@gmail.com")); // Địa chỉ người nhận
-            message.setSubject("Test Email with HTML and API Link"); // Chủ đề email
+            message.setFrom(new InternetAddress(EMAIL_FROM));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(sendTo));
+            message.setSubject("Confirm your email");
 
             // Nội dung HTML với link POST tới API
             String htmlContent = "<h1>Hello,</h1>"
                     + "<p>This is a test email with HTML content.</p>"
-                    + "<form action=\"http:localhost:8080/confirm-telegram/" + chatId + "\" method=\"POST\">"
+                    + "<form action=\"http:localhost:8080/confirm-telegram/" + chatId + "\" method=\"GET\">"
                     + "<input type=\"hidden\" name=\"data\" value=\"sample_data\">"
                     + "<button type=\"submit\">Click here to call API</button>"
                     + "</form>";
