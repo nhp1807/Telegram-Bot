@@ -4,6 +4,7 @@ import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import lombok.extern.slf4j.Slf4j;
+import org.example.NotificationBot;
 import org.example.database.HibernateUtil;
 import org.example.dto.response.ApiResponse;
 import org.example.entity.Service;
@@ -11,6 +12,7 @@ import org.example.enums.Category;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.json.JSONObject;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import spark.Request;
 import spark.Response;
 import spark.Spark;
@@ -143,6 +145,17 @@ public class ServiceService {
         }
     }
 
+    public static Object confirmTelegram(Request request, Response response) {
+        String chatId = request.params(":chatId");
+
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText("Xác nhận đã nhận dữ liệu thành công!");
+
+        response.status(200);
+        return "Dữ liệu đã được gửi.";
+    }
+
     public static void main(String[] args) throws InterruptedException {
         Spark.port(8080);
         Spark.post("/api/service/create", ServiceService::createService);
@@ -150,6 +163,6 @@ public class ServiceService {
         Spark.get("/api/service/get/:id", ServiceService::getServiceById);
         Spark.post("/store-data", ServiceService::storeData);
         Spark.get("/receive", ServiceService::receive);
-
+        Spark.get("/confirm-telegram/:chatId", ServiceService::confirmTelegram);
     }
 }

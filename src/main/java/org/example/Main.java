@@ -17,18 +17,8 @@ import java.util.Date;
 
 
 public class Main {
-    public static void main(String[] args) throws TelegramApiException, InterruptedException {
-//        Session session = HibernateUtil.getSessionFactory().openSession();
-//        Transaction transaction = session.beginTransaction();
-//        Category category = new Category("CAT2", "description2");
-//        session.save(category);
-//        transaction.commit();
-//        session.close();
-        ServiceService.sendData("new data");
-        Thread.sleep(10000);
-        ServiceService.sendData("new data 1");
-        Thread.sleep(10000);
-        ServiceService.sendData("new data 2");
+    public static void main(String[] args) throws TelegramApiException {
+        sendNoticeTele();
     }
 
 //    public static void demoService(){
@@ -81,16 +71,6 @@ public class Main {
             botsApi.registerBot(bot);
         } catch (TelegramApiException e) {
             e.printStackTrace();
-        }
-
-        while (true) {
-            bot.checkConditionAndNotify();
-
-            try {
-                Thread.sleep(10000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
     }
 }

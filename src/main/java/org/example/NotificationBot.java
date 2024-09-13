@@ -2,6 +2,7 @@ package org.example;
 
 import org.example.database.HibernateUtil;
 import org.example.entity.User;
+import org.example.service.SendMailConfirm;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -12,16 +13,12 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashSet;
 import java.util.Properties;
-import java.util.Set;
 
 public class NotificationBot extends TelegramLongPollingBot {
     private String USER_CHAT_ID;
     private String BOT_NAME;
     private String BOT_TOKEN;
-
-    private Set<String> userChatIds = new HashSet<>();
 
     @Override
     public void onUpdateReceived(Update update) {
@@ -31,66 +28,34 @@ public class NotificationBot extends TelegramLongPollingBot {
             String username = update.getMessage().getChat().getUserName();
 
             if (messageText.equals("/start")) {
-                // Mở session từ Hibernate
+                sendMessage("Bạn đã bắt đầu nhận thông báo từ bot!");
+                sendMessage("Hãy nhập email mà bạn đã đăng ký Budibase!");
+            } else if (messageText.contains("@tech.admicro.vn")) {
+                String output = "Bạn đã đăng ký bằng email: " + messageText + ", hãy vào email để xác nhận!";
+
+                SendMailConfirm sendMailConfirm = new SendMailConfirm();
+                sendMailConfirm.sendMail(chatId);
+
                 Session session = HibernateUtil.getSessionFactory().openSession();
                 Transaction transaction = session.beginTransaction();
-                User user = new User(Long.parseLong(chatId), username);
+                User user = new User(Long.parseLong(chatId), username, messageText);
                 session.save(user);
                 transaction.commit();
                 session.close();
 
-                userChatIds.add(chatId);
-                SendMessage message = new SendMessage();
-                message.setChatId(chatId);
-                message.setText("Bạn đã bắt đầu nhận thông báo từ bot!");
-
-                try {
-                    execute(message);
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
+                sendMessage(output);
             }
+
         }
     }
 
-    public void checkConditionAndNotify() {
-        boolean condition = checkSomeCondition();
-
-        if (condition) {
-            sendNotificationToUser();
-        }
-    }
-
-    // Hàm giả lập kiểm tra điều kiện
-    private boolean checkSomeCondition() {
-        return true;
-    }
-
-    // Hàm gửi thông báo cho user cụ thể
-    private void sendNotificationToUser() {
+    public void sendMessage(String input) {
         SendMessage message = new SendMessage();
-        message.setChatId(USER_CHAT_ID);
-        message.setText("Thông báo: Điều kiện đã được thỏa mãn!");
-
+        message.setText(input);
         try {
             execute(message);
         } catch (TelegramApiException e) {
             e.printStackTrace();
-        }
-    }
-
-    // Hàm gửi thông báo đến tất cả các user đã start bot
-    public void sendNotificationToAllUsers(String notificationText) {
-        for (String chatId : userChatIds) {
-            SendMessage message = new SendMessage();
-            message.setChatId(chatId);
-            message.setText(notificationText);
-
-            try {
-                execute(message);
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
         }
     }
 

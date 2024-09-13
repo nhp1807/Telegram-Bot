@@ -5,19 +5,25 @@ import lombok.Getter;
 import lombok.Setter;
 
 import jakarta.persistence.*;
+import lombok.experimental.FieldDefaults;
+
 import java.util.HashSet;
 import java.util.Set;
 
 @Setter
 @Getter
+@FieldDefaults(level = lombok.AccessLevel.PRIVATE)
 @Entity
 @Table(name = "user")
 public class User {
     @Id
-    private Long id;
+    Long id;
 
     @Column(name = "username", nullable = false, unique = true)
-    private String username;
+    String username;
+
+    @Column(name = "email", nullable = false, unique = true)
+    String email;
 
     @ManyToMany
     @JoinTable(
@@ -25,14 +31,15 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "service_id")
     )
-    private Set<Service> services = new HashSet<>();
+    Set<Service> services = new HashSet<>();
 
     public User() {
     }
 
-    public User(Long id,String username) {
+    public User(Long id, String username, String email) {
         this.id = id;
         this.username = username;
+        this.email = email;
     }
 }
 
