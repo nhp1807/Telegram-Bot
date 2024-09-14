@@ -45,12 +45,12 @@ public class SendMailConfirm {
             message.setSubject("Confirm your email");
 
             // Nội dung HTML với link POST tới API
-            String htmlContent = "<h1>Hello,</h1>"
-                    + "<p>This is a test email with HTML content.</p>"
-                    + "<form action=\"http:localhost:8080/confirm-telegram/" + chatId + "\" method=\"GET\">"
-                    + "<input type=\"hidden\" name=\"data\" value=\"sample_data\">"
-                    + "<button type=\"submit\">Click here to call API</button>"
-                    + "</form>";
+            String htmlContent = "<h1>Your email has been verified successfully!</h1>";
+//                    + "<p>Your email has been verified successfully!</p>"
+//                    + "<form action=\"http:localhost:8080/confirm-telegram/" + chatId + "\" method=\"GET\">"
+//                    + "<input type=\"hidden\" name=\"data\" value=\"sample_data\">"
+//                    + "<button type=\"submit\">Click here to call API</button>"
+//                    + "</form>";
 
             // Đặt nội dung HTML cho email
             message.setContent(htmlContent, "text/html");

@@ -1,0 +1,176 @@
+package org.example.telegrambot;
+
+import org.example.database.HibernateUtil;
+import org.example.entity.Email;
+import org.example.entity.User;
+import org.example.repository.UserRepository;
+import org.example.service.SendMailConfirm;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.*;
+
+public class NotificationBot extends TelegramLongPollingBot implements MessageSender {
+    private String USER_CHAT_ID;
+    private String BOT_NAME;
+    private String BOT_TOKEN;
+
+    private UserRepository userRepository;
+    // Map để lưu trạng thái lệnh hiện tại của người dùng theo chatId
+    private Map<String, String> userCommands = new HashMap<>();
+
+    public NotificationBot() {
+        this.userRepository = new UserRepository();
+        readPropertiesFile();
+    }
+
+    @Override
+    public void onUpdateReceived(Update update) {
+        if (update.hasMessage() && update.getMessage().hasText()) {
+            String messageText = update.getMessage().getText();
+            String chatId = update.getMessage().getChatId().toString();
+            String username = update.getMessage().getChat().getUserName();
+
+            checkInput(messageText, chatId, username);
+        }
+    }
+
+    public void checkInput(String messageText, String chatId, String username){
+        SendMailConfirm sendMailConfirm = new SendMailConfirm();
+
+        if (messageText.equals("/start")){
+            sendMessage("Bạn đã bắt đầu nhận thông báo từ bot!", chatId);
+            sendMessage("Sử dụng /help để được hỗ trợ", chatId);
+            sendMessage("Sử dụng /add_email để thêm email đăng ký Budibase", chatId);
+        } else if (messageText.equals("/help")){
+            showHelp();
+        } else if (messageText.equals("/remove_email")){
+            sendMessage("Hãy nhập email cần xóa", chatId);
+            userCommands.put(chatId, "DELETE_EMAIL");
+        } else if (messageText.equals("/add_email")){
+            sendMessage("Hãy nhập email để đăng ký Budibase", chatId);
+            userCommands.put(chatId, "ADD_EMAIL");
+        } else if (messageText.contains("@")){
+            processEmailInput(chatId, username, messageText);
+//            if (checkEmail(messageText)){
+//                sendMessage("Bạn đã đăng ký bằng email: " + messageText, chatId);
+//                userRepository.createUser(new User(chatId, username, messageText));
+//                sendMailConfirm.sendMail(chatId, messageText);
+//            } else {
+//                sendMessage("Email đã tồn tại!", chatId);
+//                sendMessage("Hãy nhập email để đăng ký Budibase", chatId);
+//            }
+        } else {
+            sendMessage("Nội dung không hợp lệ!", chatId);
+        }
+    }
+
+    public void processEmailInput(String chatId, String username, String emailAddress) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+
+        // Tìm người dùng trong database
+        User user = session.createQuery("FROM User WHERE idTelegram = :idTelegram", User.class)
+                .setParameter("idTelegram", chatId)
+                .uniqueResult();
+
+        String currentCommand = userCommands.get(chatId);
+
+        if (user == null) {
+            // Nếu người dùng chưa tồn tại, tạo mới
+            user = new User(chatId, username);
+            session.save(user);
+        }
+
+        if ("ADD_EMAIL".equals(currentCommand)) {
+            // Thêm email vào user
+            Email email = new Email(emailAddress, user);
+            user.addEmail(email);
+            session.save(email);
+            sendMessage("Bạn đã thêm email: " + emailAddress, chatId.toString());
+        } else if ("DELETE_EMAIL".equals(currentCommand)) {
+            // Xóa email từ user
+            Email emailToRemove = session.createQuery("FROM Email WHERE emailAddress = :emailAddress AND user.id = :userId", Email.class)
+                    .setParameter("emailAddress", emailAddress)
+                    .setParameter("userId", user.getId())
+                    .uniqueResult();
+
+            if (emailToRemove != null) {
+                user.removeEmail(emailToRemove);
+                session.delete(emailToRemove);
+                sendMessage("Email đã được xóa: " + emailAddress, chatId.toString());
+            } else {
+                sendMessage("Email này không tồn tại trong tài khoản của bạn: " + emailAddress, chatId.toString());
+            }
+        }
+
+        session.update(user);
+        transaction.commit();
+        session.close();
+        userCommands.remove(chatId); // Xóa trạng thái lệnh sau khi xử lý
+    }
+
+    public boolean checkEmail(String email) {
+        User user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            return true;
+        }
+        return false;
+    }
+
+    public String showHelp() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("/change_email: Đổi email đã đăng ký").append("\n");
+        sb.append("/add_email: Thêm email đăng ký").append("\n");
+        return sb.toString();
+    }
+
+    @Override
+    public void sendMessage(String text, String chatId) {
+        SendMessage message = new SendMessage();
+        message.setText(text);
+        message.setChatId(chatId);
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public String getBotUsername() {
+        return BOT_NAME;
+    }
+
+    @Override
+    public String getBotToken() {
+        return BOT_TOKEN;
+    }
+
+    // Read data from properties file
+    public void readPropertiesFile() {
+        Properties prop = new Properties();
+        InputStream input;
+
+        try {
+            input = new FileInputStream("src/main/resources/application.properties");
+
+            // load a properties file
+            prop.load(input);
+
+            USER_CHAT_ID = prop.getProperty("USER_CHAT_ID");
+            BOT_NAME = prop.getProperty("BOT_NAME");
+            BOT_TOKEN = prop.getProperty("BOT_TOKEN");
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+}

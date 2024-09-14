@@ -1,12 +1,8 @@
 package org.example.service;
 
-import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.MACSigner;
-import com.nimbusds.jwt.JWTClaimsSet;
 import lombok.extern.slf4j.Slf4j;
-import org.example.NotificationBot;
+import org.example.telegrambot.NotificationBot;
 import org.example.database.HibernateUtil;
-import org.example.dto.response.ApiResponse;
 import org.example.entity.Service;
 import org.example.enums.Category;
 import org.hibernate.Session;

@@ -1,10 +1,8 @@
 package org.example.entity;
 
-import lombok.Builder;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
-import jakarta.persistence.*;
 import lombok.experimental.FieldDefaults;
 
 import java.util.HashSet;
@@ -17,13 +15,19 @@ import java.util.Set;
 @Table(name = "user")
 public class User {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @Column(name = "username", nullable = false, unique = true)
+    @Column(name = "id_telegram", nullable = false)
+    String idTelegram;
+
+    @Column(name = "username", nullable = false)
     String username;
 
-    @Column(name = "email", nullable = false, unique = true)
-    String email;
+    //    @Column(name = "email", nullable = false)
+//    String email;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    Set<Email> emails = new HashSet<>();
 
     @ManyToMany
     @JoinTable(
@@ -36,10 +40,21 @@ public class User {
     public User() {
     }
 
-    public User(Long id, String username, String email) {
-        this.id = id;
+    public User(String idTelegram, String username) {
+        this.idTelegram = idTelegram;
         this.username = username;
-        this.email = email;
+    }
+
+    // Thêm email vào User
+    public void addEmail(Email email) {
+        emails.add(email);
+        email.setUser(this);  // Thiết lập quan hệ với User
+    }
+
+    // Xóa email khỏi User
+    public void removeEmail(Email email) {
+        emails.remove(email);
+        email.setUser(null);  // Hủy quan hệ với User
     }
 }
 

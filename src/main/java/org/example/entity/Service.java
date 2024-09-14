@@ -23,7 +23,7 @@ public class Service {
     private String name;
     @Column(name = "category", nullable = false)
     private Category category;
-    @Column(name = "token", nullable = false)
+    @Column(name = "token", nullable = false, unique = true)
     private String token;
     @Column(name = "owner", nullable = false)
     private String owner;
