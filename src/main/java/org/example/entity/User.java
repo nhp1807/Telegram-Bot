@@ -24,9 +24,11 @@ public class User {
     @Column(name = "username", nullable = false)
     String username;
 
-    //    @Column(name = "email", nullable = false)
-//    String email;
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.EAGER)
     Set<Email> emails = new HashSet<>();
 
     @ManyToMany

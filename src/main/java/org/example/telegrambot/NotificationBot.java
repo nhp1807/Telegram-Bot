@@ -25,6 +25,7 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
     private UserRepository userRepository;
     // Map để lưu trạng thái lệnh hiện tại của người dùng theo chatId
     private Map<String, String> userCommands = new HashMap<>();
+    private SendMailConfirm sendMailConfirm = new SendMailConfirm();
 
     public NotificationBot() {
         this.userRepository = new UserRepository();
@@ -43,30 +44,29 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
     }
 
     public void checkInput(String messageText, String chatId, String username){
-        SendMailConfirm sendMailConfirm = new SendMailConfirm();
-
         if (messageText.equals("/start")){
             sendMessage("Bạn đã bắt đầu nhận thông báo từ bot!", chatId);
             sendMessage("Sử dụng /help để được hỗ trợ", chatId);
             sendMessage("Sử dụng /add_email để thêm email đăng ký Budibase", chatId);
         } else if (messageText.equals("/help")){
-            showHelp();
+            sendMessage(showHelp(), chatId);
         } else if (messageText.equals("/remove_email")){
             sendMessage("Hãy nhập email cần xóa", chatId);
             userCommands.put(chatId, "DELETE_EMAIL");
         } else if (messageText.equals("/add_email")){
             sendMessage("Hãy nhập email để đăng ký Budibase", chatId);
             userCommands.put(chatId, "ADD_EMAIL");
+        } else if (messageText.equals("/list_email")){
+            User user = userRepository.findUserByIdTelegram(chatId);
+            List<Email> emails = user.getEmails().stream().toList();
+            StringBuilder sb = new StringBuilder();
+            sb.append("Danh sách email của bạn:").append("\n");
+            for (Email email : emails) {
+                sb.append(email.getEmailAddress()).append("\n");
+            }
+            sendMessage(sb.toString(), chatId.toString());
         } else if (messageText.contains("@")){
             processEmailInput(chatId, username, messageText);
-//            if (checkEmail(messageText)){
-//                sendMessage("Bạn đã đăng ký bằng email: " + messageText, chatId);
-//                userRepository.createUser(new User(chatId, username, messageText));
-//                sendMailConfirm.sendMail(chatId, messageText);
-//            } else {
-//                sendMessage("Email đã tồn tại!", chatId);
-//                sendMessage("Hãy nhập email để đăng ký Budibase", chatId);
-//            }
         } else {
             sendMessage("Nội dung không hợp lệ!", chatId);
         }
@@ -95,6 +95,9 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
             user.addEmail(email);
             session.save(email);
             sendMessage("Bạn đã thêm email: " + emailAddress, chatId.toString());
+            String text = "<h1>Thêm email thành công!</h1>"
+                    + "<p>Nhấn vào đường <a href=\"google.com\" target=\"_blank\">link</a> sau để đăng nhập</p>";
+            sendMailConfirm.sendMail(text, chatId, emailAddress);
         } else if ("DELETE_EMAIL".equals(currentCommand)) {
             // Xóa email từ user
             Email emailToRemove = session.createQuery("FROM Email WHERE emailAddress = :emailAddress AND user.id = :userId", Email.class)
@@ -106,6 +109,7 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
                 user.removeEmail(emailToRemove);
                 session.delete(emailToRemove);
                 sendMessage("Email đã được xóa: " + emailAddress, chatId.toString());
+                sendMailConfirm.sendMail("Xoá email thành công!", chatId, emailAddress);
             } else {
                 sendMessage("Email này không tồn tại trong tài khoản của bạn: " + emailAddress, chatId.toString());
             }
@@ -127,8 +131,9 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
 
     public String showHelp() {
         StringBuilder sb = new StringBuilder();
-        sb.append("/change_email: Đổi email đã đăng ký").append("\n");
         sb.append("/add_email: Thêm email đăng ký").append("\n");
+        sb.append("/remove_email: Xóa email đăng ký").append("\n");
+        sb.append("/list_email: Xem danh sách email đăng ký").append("\n");
         return sb.toString();
     }
 

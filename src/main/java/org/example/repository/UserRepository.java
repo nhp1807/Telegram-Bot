@@ -51,9 +51,9 @@ public class UserRepository {
         User user = null;
         try {
             session.beginTransaction();
-            String hql = "FROM User WHERE id = :id";
+            String hql = "FROM User WHERE idTelegram = :idTelegram";
             Query<User> query = session.createQuery(hql, User.class);
-            query.setParameter("id_telegram", idTelegram);
+            query.setParameter("idTelegram", idTelegram);
             user = query.uniqueResult();
             session.getTransaction().commit();
         } catch (Exception e) {
