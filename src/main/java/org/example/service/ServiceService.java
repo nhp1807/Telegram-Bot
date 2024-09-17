@@ -1,12 +1,17 @@
 package org.example.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.entity.Field;
+import org.example.entity.User;
+import org.example.enums.FieldType;
+import org.example.repository.UserRepository;
 import org.example.telegrambot.NotificationBot;
 import org.example.database.HibernateUtil;
 import org.example.entity.Service;
 import org.example.enums.Category;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import spark.Request;
@@ -23,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class ServiceService {
     private static AtomicReference<String> storedData = new AtomicReference<>("Chưa có dữ liệu nào được nhận.");
+    private static UserRepository userRepository = new UserRepository();
 
     public static Object createService(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
@@ -33,13 +39,41 @@ public class ServiceService {
         String category = jsonBody.getString("category");
         String name = jsonBody.getString("name");
         String owner = jsonBody.getString("owner");
+        JSONArray members = jsonBody.getJSONArray("members");
+        JSONArray fields = jsonBody.getJSONArray("fields");
+        members.put(owner);
         Long createdAt = System.currentTimeMillis();
         Long updatedAt = System.currentTimeMillis();
 
-        Service service = new Service(name, Category.valueOf(category), null, owner, createdAt, updatedAt);
+        Service service = new Service(name, Category.valueOf(category), owner, createdAt, updatedAt);
         service.setToken(UUID.randomUUID().toString());
 
+        // make loop if fields
+        for (Object field : fields) {
+            JSONObject fieldJson = (JSONObject) field;
+            String fieldName = fieldJson.getString("name");
+            String fieldType = fieldJson.getString("type");
+            boolean isMonitor = fieldJson.getBoolean("is_monitor");
+
+            // Tạo Field mới và thêm vào Service
+            Field fieldNew = new Field(fieldName, FieldType.valueOf(fieldType), isMonitor, service);
+            service.addField(fieldNew);
+        }
+
         session.save(service);
+
+        // Thêm các User vào Service
+        for (int i = 0; i < members.length(); i++) {
+            String memberId = members.getString(i);
+            User user = userRepository.findUserByIdTelegram(memberId);
+            if (user != null) {
+                service.addUser(user);  // Thêm user vào service
+                session.update(user);   // Cập nhật user
+            } else {
+                log.error("User not found with id: " + memberId);
+            }
+        }
+
         transaction.commit();
         session.close();
 
@@ -56,13 +90,37 @@ public class ServiceService {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
 
-        List<Service> services = session.createQuery("from Service", Service.class).list();
+        // Sử dụng JOIN FETCH để lấy cả danh sách User trong từng Service
+        List<Service> services = session.createQuery("SELECT DISTINCT s FROM Service s LEFT JOIN FETCH s.users", Service.class).list();
 
         transaction.commit();
         session.close();
 
+        // Chuyển đổi kết quả thành JSON
+        JSONArray serviceArray = new JSONArray();
+        for (Service service : services) {
+            JSONObject serviceJson = new JSONObject();
+            serviceJson.put("id", service.getId());
+            serviceJson.put("name", service.getName());
+            serviceJson.put("category", service.getCategory().toString());
+            serviceJson.put("token", service.getToken());
+            serviceJson.put("owner", service.getOwner());
+            serviceJson.put("createdAt", service.getCreatedAt());
+            serviceJson.put("updatedAt", service.getUpdatedAt());
+
+            // Lấy danh sách User của Service
+            StringBuilder users = new StringBuilder();
+            for (User user : service.getUsers()) {
+                users.append(user.getIdTelegram()).append(" ");
+            }
+
+            serviceJson.put("users", users.toString().replace(" ", ", ").substring(0, users.length() - 1));
+
+            serviceArray.put(serviceJson);
+        }
+
         JSONObject jsonResponse = new JSONObject();
-        jsonResponse.put("services", services);
+        jsonResponse.put("services", serviceArray);
 
         response.body(jsonResponse.toString());
 
@@ -96,7 +154,7 @@ public class ServiceService {
         return response.body();
     }
 
-    public static Object storeData(Request request, Response response){
+    public static Object storeData(Request request, Response response) {
         String data = request.body();
         System.out.println("Dữ liệu nhận được: " + data);
 
@@ -141,23 +199,6 @@ public class ServiceService {
         }
     }
 
-    public static Object confirmTelegram(Request request, Response response) {
-        String chatId = request.params(":chatId");
-
-        SendMessage message = new SendMessage();
-        message.setChatId(chatId);
-        message.setText("Xác nhận email thành công!");
-
-        try {
-            NotificationBot bot = new NotificationBot();
-            bot.sendMessage(message.getText(), chatId);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        response.status(200);
-        return "Dữ liệu đã được gửi.";
-    }
 
     public static void main(String[] args) throws InterruptedException {
         Spark.port(8080);
@@ -166,6 +207,5 @@ public class ServiceService {
         Spark.get("/api/service/get/:id", ServiceService::getServiceById);
         Spark.post("/store-data", ServiceService::storeData);
         Spark.get("/receive", ServiceService::receive);
-        Spark.get("/confirm-telegram/:chatId", ServiceService::confirmTelegram);
     }
 }

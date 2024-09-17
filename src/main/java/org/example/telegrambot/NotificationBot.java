@@ -37,13 +37,12 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             String chatId = update.getMessage().getChatId().toString();
-            String username = update.getMessage().getChat().getUserName();
 
-            checkInput(messageText, chatId, username);
+            checkInput(messageText, chatId);
         }
     }
 
-    public void checkInput(String messageText, String chatId, String username){
+    public void checkInput(String messageText, String chatId){
         if (messageText.equals("/start")){
             sendMessage("Bạn đã bắt đầu nhận thông báo từ bot!", chatId);
             sendMessage("Sử dụng /help để được hỗ trợ", chatId);
@@ -66,13 +65,13 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
             }
             sendMessage(sb.toString(), chatId.toString());
         } else if (messageText.contains("@")){
-            processEmailInput(chatId, username, messageText);
+            processEmailInput(chatId, messageText);
         } else {
             sendMessage("Nội dung không hợp lệ!", chatId);
         }
     }
 
-    public void processEmailInput(String chatId, String username, String emailAddress) {
+    public void processEmailInput(String chatId, String emailAddress) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
 
@@ -85,7 +84,7 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
 
         if (user == null) {
             // Nếu người dùng chưa tồn tại, tạo mới
-            user = new User(chatId, username);
+            user = new User(chatId);
             session.save(user);
         }
 
@@ -119,14 +118,6 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
         transaction.commit();
         session.close();
         userCommands.remove(chatId); // Xóa trạng thái lệnh sau khi xử lý
-    }
-
-    public boolean checkEmail(String email) {
-        User user = userRepository.findUserByEmail(email);
-        if (user == null) {
-            return true;
-        }
-        return false;
     }
 
     public String showHelp() {

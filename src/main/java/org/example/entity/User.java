@@ -18,11 +18,8 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @Column(name = "id_telegram", nullable = false)
+    @Column(name = "telegram_id", nullable = false)
     String idTelegram;
-
-    @Column(name = "username", nullable = false)
-    String username;
 
     @OneToMany(
             mappedBy = "user",
@@ -31,7 +28,7 @@ public class User {
             fetch = FetchType.EAGER)
     Set<Email> emails = new HashSet<>();
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_service",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -42,9 +39,8 @@ public class User {
     public User() {
     }
 
-    public User(String idTelegram, String username) {
+    public User(String idTelegram) {
         this.idTelegram = idTelegram;
-        this.username = username;
     }
 
     // Thêm email vào User
