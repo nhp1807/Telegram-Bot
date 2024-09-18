@@ -2,8 +2,10 @@ package org.example.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.entity.Field;
+import org.example.entity.SafeBoundery;
 import org.example.entity.User;
 import org.example.enums.FieldType;
+import org.example.enums.Operator;
 import org.example.repository.UserRepository;
 import org.example.telegrambot.NotificationBot;
 import org.example.database.HibernateUtil;
@@ -34,56 +36,80 @@ public class ServiceService {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
 
-        String body = request.body();
-        JSONObject jsonBody = new JSONObject(body);
-        String category = jsonBody.getString("category");
-        String name = jsonBody.getString("name");
-        String owner = jsonBody.getString("owner");
-        JSONArray members = jsonBody.getJSONArray("members");
-        JSONArray fields = jsonBody.getJSONArray("fields");
-        members.put(owner);
-        Long createdAt = System.currentTimeMillis();
-        Long updatedAt = System.currentTimeMillis();
+        try {
 
-        Service service = new Service(name, Category.valueOf(category), owner, createdAt, updatedAt);
-        service.setToken(UUID.randomUUID().toString());
 
-        // make loop if fields
-        for (Object field : fields) {
-            JSONObject fieldJson = (JSONObject) field;
-            String fieldName = fieldJson.getString("name");
-            String fieldType = fieldJson.getString("type");
-            boolean isMonitor = fieldJson.getBoolean("is_monitor");
+            String body = request.body();
+            JSONObject jsonBody = new JSONObject(body);
+            String category = jsonBody.getString("category");
+            String name = jsonBody.getString("name");
+            String owner = jsonBody.getString("owner");
+            JSONArray members = jsonBody.getJSONArray("members");
+            JSONArray fields = jsonBody.getJSONArray("fields");
+            members.put(owner);
+            Long createdAt = System.currentTimeMillis();
+            Long updatedAt = System.currentTimeMillis();
 
-            // Tạo Field mới và thêm vào Service
-            Field fieldNew = new Field(fieldName, FieldType.valueOf(fieldType), isMonitor, service);
-            service.addField(fieldNew);
-        }
+            Service service = new Service(name, Category.valueOf(category), owner, createdAt, updatedAt);
+            service.setToken(UUID.randomUUID().toString());
 
-        session.save(service);
+            for (Object field : fields) {
+                JSONObject fieldJson = (JSONObject) field;
+                String fieldName = fieldJson.getString("name");
+                String fieldType = fieldJson.getString("type");
+                boolean isMonitor = fieldJson.getBoolean("is_monitor");
 
-        // Thêm các User vào Service
-        for (int i = 0; i < members.length(); i++) {
-            String memberId = members.getString(i);
-            User user = userRepository.findUserByIdTelegram(memberId);
-            if (user != null) {
-                service.addUser(user);  // Thêm user vào service
-                session.update(user);   // Cập nhật user
-            } else {
-                log.error("User not found with id: " + memberId);
+                // Tạo Field mới và thêm vào Service
+                Field fieldNew = new Field(fieldName, FieldType.valueOf(fieldType), isMonitor, service);
+                service.addField(fieldNew);
+
+                if (isMonitor) {
+                    SafeBoundery safeBoundery = new SafeBoundery();
+                    safeBoundery.setOperator(Operator.valueOf(fieldJson.getString("operator")));
+
+                    // Nếu trường tồn tại nhưng có giá trị null, sẽ lưu null
+                    safeBoundery.setValue1(fieldJson.isNull("value1") ? null : fieldJson.optInt("value1"));
+                    safeBoundery.setValue2(fieldJson.isNull("value2") ? null : fieldJson.optInt("value2"));
+                    safeBoundery.setString(fieldJson.isNull("string") ? null : fieldJson.optString("string"));
+
+                    fieldNew.setSafeBoundery(safeBoundery); // Liên kết SafeBoundery với Field
+                    safeBoundery.setField(fieldNew);        // Liên kết ngược Field với SafeBoundery
+                }
             }
+
+            session.save(service);
+
+            // Thêm các User vào Service
+            for (int i = 0; i < members.length(); i++) {
+                String memberId = members.getString(i);
+                User user = userRepository.findUserByIdTelegram(memberId);
+                if (user != null) {
+                    service.addUser(user);  // Thêm user vào service
+                    session.update(user);   // Cập nhật user
+                } else {
+                    log.error("User not found with id: " + memberId);
+                }
+            }
+
+            transaction.commit();
+            session.close();
+
+            JSONObject jsonResponse = new JSONObject();
+            jsonResponse.put("token", service.getToken());
+            jsonResponse.put("created_at", service.getCreatedAt());
+
+            response.body(jsonResponse.toString());
+
+            return response.body();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback(); // Rollback nếu có lỗi
+            }
+            log.error("Error creating service", e);
+            throw e;
+        } finally {
+            session.close();
         }
-
-        transaction.commit();
-        session.close();
-
-        JSONObject jsonResponse = new JSONObject();
-        jsonResponse.put("token", service.getToken());
-        jsonResponse.put("created_at", service.getCreatedAt());
-
-        response.body(jsonResponse.toString());
-
-        return response.body();
     }
 
     public static Object getAllServices(Request request, Response response) {

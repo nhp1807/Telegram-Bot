@@ -29,6 +29,10 @@ public class Field {
     @JoinColumn(name = "service_id", nullable = false)
     Service service;
 
+    @OneToOne(mappedBy = "field", cascade = CascadeType.ALL)
+    @PrimaryKeyJoinColumn
+    SafeBoundery safeBoundery;
+
     public Field() {
     }
 
