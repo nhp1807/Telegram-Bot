@@ -6,16 +6,18 @@ import org.example.entity.SafeBoundery;
 import org.example.entity.User;
 import org.example.enums.FieldType;
 import org.example.enums.Operator;
+import org.example.repository.ServiceRepository;
 import org.example.repository.UserRepository;
-import org.example.telegrambot.NotificationBot;
 import org.example.database.HibernateUtil;
 import org.example.entity.Service;
 import org.example.enums.Category;
+import org.example.telegrambot.BotSingleton;
+import org.example.telegrambot.MessageSender;
+import org.example.telegrambot.NotificationBot;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import spark.Request;
 import spark.Response;
 import spark.Spark;
@@ -31,16 +33,27 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ServiceService {
     private static AtomicReference<String> storedData = new AtomicReference<>("Chưa có dữ liệu nào được nhận.");
     private static UserRepository userRepository = new UserRepository();
+    private static ServiceRepository serviceRepository = new ServiceRepository();
+    private static MessageSender messageSender;
+    private static NotificationBot bot = BotSingleton.getInstance();
+
+    public ServiceService(MessageSender messageSender) {
+        this.messageSender = messageSender;
+    }
+
+    public void processEvent(String text, String chatId) {
+        // Gọi hàm sendMessage từ đối tượng messageSender
+        messageSender.sendMessage(text, chatId);
+    }
 
     public static Object createService(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
 
         try {
-
-
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
+            System.out.println("Body: " + jsonBody.toString());
             String category = jsonBody.getString("category");
             String name = jsonBody.getString("name");
             String owner = jsonBody.getString("owner");
@@ -50,13 +63,24 @@ public class ServiceService {
             Long createdAt = System.currentTimeMillis();
             Long updatedAt = System.currentTimeMillis();
 
+            // Kiểm tra xem Service đã tồn tại chưa
+            Service serviceCheck = serviceRepository.findServiceByName(name);
+
+            if (serviceCheck != null) {
+                response.status(400);
+                JSONObject jsonResponse = new JSONObject();
+                jsonResponse.put("message", "Service already exists.");
+                response.body(jsonResponse.toString());
+                return response.body();
+            }
+
             Service service = new Service(name, Category.valueOf(category), owner, createdAt, updatedAt);
             service.setToken(UUID.randomUUID().toString());
 
             for (Object field : fields) {
                 JSONObject fieldJson = (JSONObject) field;
-                String fieldName = fieldJson.getString("name");
-                String fieldType = fieldJson.getString("type");
+                String fieldName = fieldJson.getString("field_name");
+                String fieldType = fieldJson.getString("field_type");
                 boolean isMonitor = fieldJson.getBoolean("is_monitor");
 
                 // Tạo Field mới và thêm vào Service
@@ -65,15 +89,20 @@ public class ServiceService {
 
                 if (isMonitor) {
                     SafeBoundery safeBoundery = new SafeBoundery();
-                    safeBoundery.setOperator(Operator.valueOf(fieldJson.getString("operator")));
 
-                    // Nếu trường tồn tại nhưng có giá trị null, sẽ lưu null
-                    safeBoundery.setValue1(fieldJson.isNull("value1") ? null : fieldJson.optInt("value1"));
-                    safeBoundery.setValue2(fieldJson.isNull("value2") ? null : fieldJson.optInt("value2"));
-                    safeBoundery.setString(fieldJson.isNull("string") ? null : fieldJson.optString("string"));
+                    String operator = fieldJson.getString("operator");
 
-                    fieldNew.setSafeBoundery(safeBoundery); // Liên kết SafeBoundery với Field
-                    safeBoundery.setField(fieldNew);        // Liên kết ngược Field với SafeBoundery
+                    safeBoundery.setOperator(Operator.valueOf(operator));
+
+                    if (fieldType.equals("NUMBER")){
+                        safeBoundery.setValue1(fieldJson.isNull("value1") ? null : fieldJson.optInt("value1"));
+                        safeBoundery.setValue2(fieldJson.isNull("value2") ? null : fieldJson.optInt("value2"));
+                    } else if (fieldType.equals("STRING")){
+                        safeBoundery.setString(fieldJson.isNull("string") ? null : fieldJson.optString("string"));
+                    }
+
+                    fieldNew.setSafeBoundery(safeBoundery);
+                    safeBoundery.setField(fieldNew);
                 }
             }
 
@@ -81,14 +110,15 @@ public class ServiceService {
 
             // Thêm các User vào Service
             for (int i = 0; i < members.length(); i++) {
-                String memberId = members.getString(i);
+                String memberId = userRepository.findUserByEmail(members.getString(i)).getIdTelegram();
                 User user = userRepository.findUserByIdTelegram(memberId);
                 if (user != null) {
-                    service.addUser(user);  // Thêm user vào service
-                    session.update(user);   // Cập nhật user
+                    service.addUser(user);
+                    session.update(user);
                 } else {
                     log.error("User not found with id: " + memberId);
                 }
+                bot.sendMessage("Bạn đã được thêm vào Service: " + service.toString(), memberId);
             }
 
             transaction.commit();

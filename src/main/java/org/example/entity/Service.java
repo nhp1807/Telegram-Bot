@@ -78,4 +78,19 @@ public class Service {
         fields.remove(field);
         field.setService(null);
     }
+
+    @Override
+    public String toString() {
+        return "Service{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", category=" + category +
+                ", token='" + token + '\'' +
+                ", owner='" + owner + '\'' +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
+                ", users=" + users +
+                ", fields=" + fields +
+                '}';
+    }
 }
