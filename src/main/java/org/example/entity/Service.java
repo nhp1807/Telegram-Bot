@@ -38,6 +38,9 @@ public class Service {
     @Column(name = "updated_at", nullable = false)
     private Long updatedAt;
 
+    @Column(name = "warning_duration")
+    private Long warningDuration;
+
     @ManyToMany(mappedBy = "services")
     private Set<User> users = new HashSet<>();
 
@@ -48,15 +51,37 @@ public class Service {
             fetch = FetchType.EAGER)
     private Set<Field> fields = new HashSet<>();
 
+    @OneToMany(
+            mappedBy = "service",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.EAGER)
+    private Set<SentWarning> sentWarnings = new HashSet<>();
+
+    @OneToMany(
+            mappedBy = "service",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.EAGER)
+    private Set<SentMessage> sentMessages = new HashSet<>();
+
+    @OneToMany(
+            mappedBy = "service",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.EAGER)
+    private Set<DataReturn> dataReturns = new HashSet<>();
+
     public Service() {
     }
 
-    public Service(String name, Category category, String owner, Long createdAt, Long updatedAt) {
+    public Service(String name, Category category, String owner, Long createdAt, Long updatedAt, Long warningDuration) {
         this.name = name;
         this.category = category;
         this.owner = owner;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.warningDuration = warningDuration;
     }
 
     public void addUser(User user) {
@@ -77,6 +102,26 @@ public class Service {
     public void removeField(Field field) {
         fields.remove(field);
         field.setService(null);
+    }
+
+    public void addSentWarning(SentWarning sentWarning) {
+        sentWarnings.add(sentWarning);
+        sentWarning.setService(this);
+    }
+
+    public void removeSentWarning(SentWarning sentWarning) {
+        sentWarnings.remove(sentWarning);
+        sentWarning.setService(null);
+    }
+
+    public void addSentMessage(SentMessage sentMessage) {
+        sentMessages.add(sentMessage);
+        sentMessage.setService(this);
+    }
+
+    public void removeSentMessage(SentMessage sentMessage) {
+        sentMessages.remove(sentMessage);
+        sentMessage.setService(null);
     }
 
     @Override

@@ -59,6 +59,10 @@ public class ServiceService {
             String owner = jsonBody.getString("owner");
             JSONArray members = jsonBody.getJSONArray("members");
             JSONArray fields = jsonBody.getJSONArray("fields");
+            JSONObject warning_duration = jsonBody.getJSONObject("warning_duration");
+            Long hours = warning_duration.getLong("hours");
+            Long minutes = warning_duration.getLong("minutes");
+            Long warningDuration = hours * 60 + minutes;
             members.put(owner);
             Long createdAt = System.currentTimeMillis();
             Long updatedAt = System.currentTimeMillis();
@@ -74,7 +78,7 @@ public class ServiceService {
                 return response.body();
             }
 
-            Service service = new Service(name, Category.valueOf(category), owner, createdAt, updatedAt);
+            Service service = new Service(name, Category.valueOf(category), owner, createdAt, updatedAt, warningDuration);
             service.setToken(UUID.randomUUID().toString());
 
             for (Object field : fields) {
