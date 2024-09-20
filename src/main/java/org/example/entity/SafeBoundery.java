@@ -18,9 +18,9 @@ public class SafeBoundery {
     @Column(name = "operator", nullable = false)
     Operator operator;
     @Column(name = "value1")
-    Integer value1;
+    Double value1;
     @Column(name = "value2")
-    Integer value2;
+    Double value2;
     @Column(name = "string")
     String string;
 
@@ -32,7 +32,7 @@ public class SafeBoundery {
     public SafeBoundery() {
     }
 
-    public SafeBoundery(Operator operator, Integer value1, Integer value2, String string) {
+    public SafeBoundery(Operator operator, Double value1, Double value2, String string) {
         this.operator = operator;
         this.value1 = value1;
         this.value2 = value2;

@@ -23,7 +23,7 @@ public class Field {
     FieldType type;
 
     @Column(name = "is_monitor", nullable = false)
-    boolean is_monitor;
+    boolean isMonitor;
 
     @ManyToOne
     @JoinColumn(name = "service_id", nullable = false)
@@ -36,10 +36,10 @@ public class Field {
     public Field() {
     }
 
-    public Field(String name, FieldType type, boolean is_monitor, Service service) {
+    public Field(String name, FieldType type, boolean isMonitor, Service service) {
         this.name = name;
         this.type = type;
-        this.is_monitor = is_monitor;
+        this.isMonitor = isMonitor;
         this.service = service;
     }
 }

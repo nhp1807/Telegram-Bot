@@ -41,7 +41,10 @@ public class Service {
     @Column(name = "warning_duration")
     private Long warningDuration;
 
-    @ManyToMany(mappedBy = "services")
+    @ManyToMany(
+            mappedBy = "services",
+//            cascade = {CascadeType.PERSIST, CascadeType.MERGE},
+            fetch = FetchType.EAGER)
     private Set<User> users = new HashSet<>();
 
     @OneToMany(
@@ -122,6 +125,16 @@ public class Service {
     public void removeSentMessage(SentMessage sentMessage) {
         sentMessages.remove(sentMessage);
         sentMessage.setService(null);
+    }
+
+    public void addDataReturn(DataReturn dataReturn) {
+        dataReturns.add(dataReturn);
+        dataReturn.setService(this);
+    }
+
+    public void removeDataReturn(DataReturn dataReturn) {
+        dataReturns.remove(dataReturn);
+        dataReturn.setService(null);
     }
 
     @Override

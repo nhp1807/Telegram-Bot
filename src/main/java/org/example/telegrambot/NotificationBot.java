@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 
-public class NotificationBot extends TelegramLongPollingBot implements MessageSender {
+public class NotificationBot extends TelegramLongPollingBot {
     private String USER_CHAT_ID;
     private String BOT_NAME;
     private String BOT_TOKEN;
@@ -96,7 +96,7 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
             sendMessage("Bạn đã thêm email: " + emailAddress, chatId.toString());
             String text = "<h1>Thêm email thành công!</h1>"
                     + "<p>Nhấn vào đường <a href=\"google.com\" target=\"_blank\">link</a> sau để đăng nhập</p>";
-            sendMailConfirm.sendMail(text, chatId, emailAddress);
+            sendMailConfirm.sendMail(text, emailAddress);
         } else if ("DELETE_EMAIL".equals(currentCommand)) {
             // Xóa email từ user
             Email emailToRemove = session.createQuery("FROM Email WHERE emailAddress = :emailAddress AND user.id = :userId", Email.class)
@@ -108,7 +108,7 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
                 user.removeEmail(emailToRemove);
                 session.delete(emailToRemove);
                 sendMessage("Email đã được xóa: " + emailAddress, chatId.toString());
-                sendMailConfirm.sendMail("Xoá email thành công!", chatId, emailAddress);
+                sendMailConfirm.sendMail("Xoá email thành công!", emailAddress);
             } else {
                 sendMessage("Email này không tồn tại trong tài khoản của bạn: " + emailAddress, chatId.toString());
             }
@@ -128,7 +128,7 @@ public class NotificationBot extends TelegramLongPollingBot implements MessageSe
         return sb.toString();
     }
 
-    @Override
+//    @Override
     public void sendMessage(String text, String chatId) {
         SendMessage message = new SendMessage();
         message.setText(text);

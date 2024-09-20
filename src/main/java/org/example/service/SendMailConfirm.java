@@ -19,7 +19,7 @@ public class SendMailConfirm {
 
     }
 
-    public void sendMail(String text, String chatId, String sendTo){
+    public void sendMail(String text, String sendTo){
         readPropertiesFile();
 
         // Cấu hình các thuộc tính cho phiên email

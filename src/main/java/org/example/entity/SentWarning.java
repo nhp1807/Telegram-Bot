@@ -3,11 +3,13 @@ package org.example.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.FieldDefaults;
 
 @Setter
 @Getter
 @Entity
 @Table(name = "sent_warnings")
+@FieldDefaults(level = lombok.AccessLevel.PRIVATE)
 public class SentWarning {
     @Id
     @GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
