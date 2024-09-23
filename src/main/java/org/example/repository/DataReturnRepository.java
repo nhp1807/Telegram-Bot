@@ -1,25 +1,21 @@
 package org.example.repository;
 
 import org.example.database.HibernateUtil;
-import org.example.entity.SentMessage;
+import org.example.entity.DataReturn;
 import org.hibernate.Session;
 
-import java.util.List;
-
-public class SentMessageRepository {
-    public List<SentMessage> getLatestSentMessage(Long service_id) {
+public class DataReturnRepository {
+    public DataReturn getLatestDataReturn(Long service_id) {
         Session session = HibernateUtil.getSessionFactory().openSession();
-        List<SentMessage> sentMessage = null;
+        DataReturn dataReturn = null;
         try {
             session.beginTransaction();
-            sentMessage = session.createQuery("FROM SentMessage WHERE service.id = :service_id AND isRead = false ORDER BY sentAt DESC", SentMessage.class)
+            dataReturn = session.createQuery("FROM DataReturn WHERE service.id = :service_id ORDER BY createdAt DESC", DataReturn.class)
                     .setParameter("service_id", service_id)
-                    .getResultList();
+                    .setMaxResults(1)
+                    .uniqueResult();
 
-            for (SentMessage message : sentMessage) {
-                message.setIsRead(true);
-                session.update(message);
-            }
+
             session.getTransaction().commit();
         } catch (Exception e) {
             if (session.getTransaction() != null) {
@@ -30,6 +26,6 @@ public class SentMessageRepository {
             session.close();
         }
 
-        return sentMessage;
+        return dataReturn;
     }
 }

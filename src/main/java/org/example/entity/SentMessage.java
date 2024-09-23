@@ -21,6 +21,9 @@ public class SentMessage {
     @Column(name = "sent_at", nullable = false)
     Long sentAt;
 
+    @Column(name = "is_read", nullable = false)
+    Boolean isRead;
+
     @ManyToOne
     @JoinColumn(name = "service_id", nullable = false)
     Service service;
@@ -32,5 +35,6 @@ public class SentMessage {
         this.message = message;
         this.sentAt = sentAt;
         this.service = service;
+        this.isRead = false;
     }
 }

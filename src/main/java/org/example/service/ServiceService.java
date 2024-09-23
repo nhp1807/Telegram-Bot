@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.entity.*;
 import org.example.enums.FieldType;
 import org.example.enums.Operator;
+import org.example.repository.DataReturnRepository;
 import org.example.repository.SentMessageRepository;
 import org.example.repository.ServiceRepository;
 import org.example.repository.UserRepository;
@@ -25,10 +26,17 @@ import java.util.*;
 public class ServiceService {
     private static UserRepository userRepository = new UserRepository();
     private static ServiceRepository serviceRepository = new ServiceRepository();
+    private static SentMessageRepository sentMessageRepository = new SentMessageRepository();
+    private static DataReturnRepository dataReturnRepository = new DataReturnRepository();
     private static CheckBounderyService checkBounderyService = new CheckBounderyService();
     private static NotificationBot bot = BotSingleton.getInstance();
-    static Map<Long, List<SentMessage>> sentMessagesMap = new HashMap<>();
 
+    /**
+     * Add new service
+     * @param request
+     * @param response
+     * @return
+     */
     public static Object createService(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
@@ -37,11 +45,20 @@ public class ServiceService {
         try {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
-            System.out.println("Body: " + jsonBody.toString());
+            System.out.println("Body: " + jsonBody);
             String category = jsonBody.getString("category");
             String name = jsonBody.getString("name");
             String owner = jsonBody.getString("owner");
-            JSONArray members = jsonBody.getJSONArray("members");
+            String memberString = jsonBody.getString("members");
+            JSONArray members;
+            if (memberString.isEmpty()) {
+                members = new JSONArray();
+            } else if (!memberString.contains(",")) {
+                members = new JSONArray();
+                members.put(memberString);
+            } else {
+                members = new JSONArray(memberString.split(","));
+            }
             JSONArray fields = jsonBody.getJSONArray("fields");
             JSONObject warning_duration = jsonBody.getJSONObject("warning_duration");
             Long hours = warning_duration.getLong("hours");
@@ -109,8 +126,6 @@ public class ServiceService {
                 bot.sendMessage("Bạn đã được thêm vào service: " + service.getToken(), memberId);
             }
 
-            sentMessagesMap.put(service.getId(), new ArrayList<>());
-
             transaction.commit();
 
             jsonResponse.put("message", "Service created successfully.");
@@ -138,7 +153,103 @@ public class ServiceService {
         }
     }
 
-    public static Object updateWarningDuration(Request request, Response response){
+    /**
+     * Delete service
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object deleteService(Request request, Response response) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        JSONObject jsonResponse = new JSONObject();
+
+        try {
+            Long id = Long.valueOf(request.params(":id"));
+            Service service = serviceRepository.findById(id);
+
+            if (service == null) {
+                jsonResponse.put("message", "Service not found.");
+
+                response.body(jsonResponse.toString());
+                response.status(404);
+
+                return response.body();
+            }
+
+            session.delete(service);
+            transaction.commit();
+
+            jsonResponse.put("message", "Service deleted successfully.");
+
+            response.body(jsonResponse.toString());
+            response.status(200);
+
+            return response.body();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            log.error("Error removing service", e);
+            throw e;
+        } finally {
+            session.close();
+        }
+    }
+
+    /**
+     * Get general service information which showed on dashboard
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object showInfoDashboard(Request request, Response response) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        JSONObject jsonResponse = new JSONObject();
+
+        try {
+            List<Service> services = serviceRepository.getAllServices();
+
+            JSONArray serviceArray = new JSONArray();
+            for (Service service : services) {
+                JSONObject serviceJson = new JSONObject();
+                serviceJson.put("name", service.getName());
+                serviceJson.put("category", service.getCategory().toString());
+                serviceJson.put("owner", service.getOwner());
+                Long lastSent = System.currentTimeMillis() - dataReturnRepository.getLatestDataReturn(service.getId()).getCreatedAt();
+                // COnvert to hours and minutes
+                Long hours = lastSent / 3600000;
+                Long minutes = (lastSent % 3600000) / 60000;
+                serviceJson.put("last_sent", hours + " hours " + minutes + " minutes");
+                serviceArray.put(serviceJson);
+            }
+
+            jsonResponse.put("message", "List of services.");
+            jsonResponse.put("services", serviceArray);
+
+            response.body(jsonResponse.toString());
+            response.status(200);
+
+            return response.body();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            log.error("Error show info dashboard", e);
+            throw e;
+        } finally {
+            session.close();
+        }
+    }
+
+    /**
+     * Turn on/off warning duration
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object updateWarningDuration(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
         JSONObject jsonResponse = new JSONObject();
@@ -162,7 +273,7 @@ public class ServiceService {
                 return response.body();
             }
 
-            if(!warning_enable){
+            if (!warning_enable) {
                 service.setWarningDuration(0L);
                 session.update(service);
                 transaction.commit();
@@ -195,6 +306,12 @@ public class ServiceService {
         }
     }
 
+    /**
+     * Get all services
+     * @param request
+     * @param response
+     * @return
+     */
     public static Object getAllServices(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
@@ -209,15 +326,7 @@ public class ServiceService {
         // Chuyển đổi kết quả thành JSON
         JSONArray serviceArray = new JSONArray();
         for (Service service : services) {
-            JSONObject serviceJson = new JSONObject();
-            serviceJson.put("id", service.getId());
-            serviceJson.put("name", service.getName());
-            serviceJson.put("category", service.getCategory().toString());
-            serviceJson.put("token", service.getToken());
-            serviceJson.put("owner", service.getOwner());
-            serviceJson.put("createdAt", service.getCreatedAt());
-            serviceJson.put("updatedAt", service.getUpdatedAt());
-            serviceJson.put("warningDuration", service.getWarningDuration());
+            JSONObject serviceJson = service.toJson();
 
             // Lấy danh sách User của Service
             StringBuilder users = new StringBuilder();
@@ -240,6 +349,12 @@ public class ServiceService {
         return response.body();
     }
 
+    /**
+     * Get service by id
+     * @param request
+     * @param response
+     * @return
+     */
     public static Object getServiceById(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
@@ -261,13 +376,122 @@ public class ServiceService {
         }
 
         jsonResponse.put("message", "Service found.");
-        jsonResponse.put("service", service);
+        jsonResponse.put("service", service.toJson());
 
         response.body(jsonResponse.toString());
         response.status(200);
         return response.body();
     }
 
+    /**
+     * Get service by name
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object getServiceByName(Request request, Response response) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        JSONObject jsonResponse = new JSONObject();
+
+        String name = request.params(":name");
+        Service service = serviceRepository.findServiceByName(name);
+
+        transaction.commit();
+        session.close();
+
+        if (service == null) {
+            jsonResponse.put("message", "Service not found.");
+
+            return jsonResponse.toString();
+        }
+
+        jsonResponse.put("message", "Service found.");
+        jsonResponse.put("service", service.toJson());
+
+        return jsonResponse.toString();
+    }
+
+    /**
+     * Add new field to an existing service
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object addField(Request request, Response response) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        JSONObject jsonResponse = new JSONObject();
+
+        try {
+            String body = request.body();
+            JSONObject jsonBody = new JSONObject(body);
+            Long id = jsonBody.getLong("id");
+            JSONObject field = jsonBody.getJSONObject("field");
+
+            Service service = serviceRepository.findById(id);
+
+            if (service == null) {
+                jsonResponse.put("message", "Service not found.");
+
+                response.body(jsonResponse.toString());
+                response.status(404);
+
+                return response.body();
+            }
+
+            String fieldName = field.getString("field_name");
+            String fieldType = field.getString("field_type");
+            boolean isMonitor = field.getBoolean("is_monitor");
+
+            // Tạo Field mới và thêm vào Service
+            Field fieldNew = new Field(fieldName, FieldType.valueOf(fieldType), isMonitor, service);
+            service.addField(fieldNew);
+
+            if (isMonitor) {
+                SafeBoundery safeBoundery = new SafeBoundery();
+
+                String operator = field.getString("operator");
+
+                safeBoundery.setOperator(Operator.valueOf(operator));
+
+                if (fieldType.equals("NUMBER")) {
+                    safeBoundery.setValue1(field.isNull("value1") ? null : field.optDouble("value1"));
+                    safeBoundery.setValue2(field.isNull("value2") ? null : field.optDouble("value2"));
+                } else if (fieldType.equals("STRING")) {
+                    safeBoundery.setString(field.isNull("string") ? null : field.optString("string"));
+                }
+
+                fieldNew.setSafeBoundery(safeBoundery);
+                safeBoundery.setField(fieldNew);
+            }
+
+            session.update(service);
+            transaction.commit();
+
+            jsonResponse.put("message", "Field added successfully.");
+
+            response.body(jsonResponse.toString());
+            response.status(200);
+
+            return response.body();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            log.error("Error adding field", e);
+            throw e;
+        } finally {
+            session.close();
+        }
+    }
+
+    /**
+     * Service sends data to API
+     * @param request
+     * @param response
+     * @return
+     */
     public static Object sendData(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
@@ -320,16 +544,16 @@ public class ServiceService {
 
             jsonResponse.put("message", "Data sent successfully.");
             jsonResponse.put("data", data);
-            JSONArray latestMessages = new JSONArray();
-            for (SentMessage sentMessage : sentMessagesMap.get(service.getId())) {
+
+            List<SentMessage> latestMessages = sentMessageRepository.getLatestSentMessage(service.getId());
+            JSONArray latestMessagesArray = new JSONArray();
+            for (SentMessage sentMessage : latestMessages) {
                 JSONObject message = new JSONObject();
                 message.put("message", sentMessage.getMessage());
                 message.put("sentAt", sentMessage.getSentAt());
-                latestMessages.put(message);
+                latestMessagesArray.put(message);
             }
-            jsonResponse.put("latestMessages", latestMessages.isEmpty() ? "No message sent." : latestMessages);
-
-            sentMessagesMap.put(service.getId(), new ArrayList<>());
+            jsonResponse.put("latestMessages", latestMessagesArray.isEmpty() ? "No message sent." : latestMessagesArray);
 
             response.body(jsonResponse.toString());
 
@@ -345,7 +569,117 @@ public class ServiceService {
         }
     }
 
-    public static Object sendMessage(Request request, Response response){
+    /**
+     * Get latest data from service
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object getLatestData(Request request, Response response) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        JSONObject jsonResponse = new JSONObject();
+
+        try {
+            Long id = Long.valueOf(request.params(":id"));
+            Service service = serviceRepository.findById(id);
+
+            if (service == null) {
+                jsonResponse.put("message", "Service not found.");
+
+                response.body(jsonResponse.toString());
+                response.status(404);
+
+                return response.body();
+            }
+
+            DataReturn dataReturn = dataReturnRepository.getLatestDataReturn(id);
+
+            if (dataReturn == null) {
+                jsonResponse.put("message", "No data found.");
+
+                response.body(jsonResponse.toString());
+                response.status(404);
+
+                return response.body();
+            }
+
+            jsonResponse.put("message", "Latest data.");
+            jsonResponse.put("data", new JSONObject(dataReturn.getData()));
+
+            response.body(jsonResponse.toString());
+            response.status(200);
+
+            return response.body();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback(); // Rollback nếu có lỗi
+            }
+            log.error("Error getting latest data", e);
+            throw e;
+        } finally {
+            session.close();
+        }
+    }
+
+    /**
+     * Get history data from service
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object getHistoryData(Request request, Response response) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        JSONObject jsonResponse = new JSONObject();
+
+        try {
+            Long id = Long.valueOf(request.params(":id"));
+            Service service = serviceRepository.findById(id);
+
+            if (service == null) {
+                jsonResponse.put("message", "Service not found.");
+
+                response.body(jsonResponse.toString());
+                response.status(404);
+
+                return response.body();
+            }
+
+            Set<DataReturn> dataReturns = service.getDataReturns();
+            JSONArray dataReturnsArray = new JSONArray();
+            for (DataReturn dataReturn : dataReturns) {
+                JSONObject dataReturnJson = new JSONObject();
+                dataReturnJson.put("data", new JSONObject(dataReturn.getData()));
+                dataReturnJson.put("create_at", dataReturn.getCreatedAt());
+                dataReturnsArray.put(dataReturnJson);
+            }
+
+            jsonResponse.put("message", "List of data returns.");
+            jsonResponse.put("dataReturns", dataReturnsArray);
+
+            response.body(jsonResponse.toString());
+            response.status(200);
+
+            return response.body();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback(); // Rollback nếu có lỗi
+            }
+            log.error("Error getting history data", e);
+            throw e;
+        } finally {
+            session.close();
+        }
+    }
+
+    /**
+     * Send message to service by user
+     * @param request
+     * @param response
+     * @return
+     */
+    public static Object sendMessage(Request request, Response response) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction transaction = session.beginTransaction();
         JSONObject jsonResponse = new JSONObject();
@@ -371,8 +705,6 @@ public class ServiceService {
             service.addSentMessage(sentMessage);
             session.update(service);
 
-            sentMessagesMap.get(service.getId()).add(sentMessage);
-
             jsonResponse.put("message", "Message sent successfully.");
             jsonResponse.put("data", message);
 
@@ -393,10 +725,16 @@ public class ServiceService {
     public static void main(String[] args) {
         Spark.port(8080);
         Spark.post("/api/service/create", ServiceService::createService);
-        Spark.get("/api/service/get-all", ServiceService::getAllServices);
+        Spark.get("/api/service/get/all", ServiceService::getAllServices);
+        Spark.get("/api/service/dashboard/get/all", ServiceService::showInfoDashboard);
         Spark.get("/api/service/get/:id", ServiceService::getServiceById);
+        Spark.get("/api/service/get/name/:name", ServiceService::getServiceByName);
+        Spark.post("/api/service/add/field", ServiceService::addField);
         Spark.post("/api/service/update/toggle-warning", ServiceService::updateWarningDuration);
+        Spark.delete("/api/service/delete/:id", ServiceService::deleteService);
         Spark.post("/api/data/send", ServiceService::sendData);
+        Spark.get("/api/data/get/:id", ServiceService::getLatestData);
+        Spark.get("/api/data/history/:id", ServiceService::getHistoryData);
         Spark.post("/api/message/send", ServiceService::sendMessage);
     }
 }

@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import jakarta.persistence.*;
 import org.example.enums.Category;
+import org.json.JSONObject;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -150,5 +151,18 @@ public class Service {
                 ", users=" + users +
                 ", fields=" + fields +
                 '}';
+    }
+
+    public JSONObject toJson() {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("id", id);
+        jsonObject.put("name", name);
+        jsonObject.put("category", category);
+        jsonObject.put("token", token);
+        jsonObject.put("owner", owner);
+        jsonObject.put("created_at", createdAt);
+        jsonObject.put("updated_at", updatedAt);
+        jsonObject.put("warning_duration", warningDuration);
+        return jsonObject;
     }
 }
