@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import jakarta.persistence.*;
+import lombok.experimental.FieldDefaults;
 import org.example.enums.Category;
 import org.json.JSONObject;
 
@@ -16,70 +17,71 @@ import java.util.Set;
 @Getter
 @Entity
 @Table(name = "service")
+@FieldDefaults(level = lombok.AccessLevel.PRIVATE)
 public class Service {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    Long id;
 
     @Column(name = "name", nullable = false, unique = true)
-    private String name;
+    String name;
 
     @Column(name = "category", nullable = false)
-    private Category category;
+    Category category;
 
     @Column(name = "token", nullable = false, unique = true)
-    private String token;
+    String token;
 
     @Column(name = "owner", nullable = false)
-    private String owner;
+    Long owner;
 
     @Column(name = "created_at", nullable = false)
-    private Long createdAt;
+    Long createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private Long updatedAt;
+    Long updatedAt;
 
     @Column(name = "warning_duration")
-    private Long warningDuration;
+    Long warningDuration;
 
     @ManyToMany(
             mappedBy = "services",
 //            cascade = {CascadeType.PERSIST, CascadeType.MERGE},
             fetch = FetchType.EAGER)
-    private Set<User> users = new HashSet<>();
+    Set<User> users = new HashSet<>();
 
     @OneToMany(
             mappedBy = "service",
             cascade = CascadeType.ALL,
             orphanRemoval = true,
             fetch = FetchType.EAGER)
-    private Set<Field> fields = new HashSet<>();
+    Set<Field> fields = new HashSet<>();
 
     @OneToMany(
             mappedBy = "service",
             cascade = CascadeType.ALL,
             orphanRemoval = true,
             fetch = FetchType.EAGER)
-    private Set<SentWarning> sentWarnings = new HashSet<>();
+    Set<SentWarning> sentWarnings = new HashSet<>();
 
     @OneToMany(
             mappedBy = "service",
             cascade = CascadeType.ALL,
             orphanRemoval = true,
             fetch = FetchType.EAGER)
-    private Set<SentMessage> sentMessages = new HashSet<>();
+    Set<SentMessage> sentMessages = new HashSet<>();
 
     @OneToMany(
             mappedBy = "service",
             cascade = CascadeType.ALL,
             orphanRemoval = true,
             fetch = FetchType.EAGER)
-    private Set<DataReturn> dataReturns = new HashSet<>();
+    Set<DataReturn> dataReturns = new HashSet<>();
 
     public Service() {
     }
 
-    public Service(String name, Category category, String owner, Long createdAt, Long updatedAt, Long warningDuration) {
+    public Service(String name, Category category, Long owner, Long createdAt, Long updatedAt, Long warningDuration) {
         this.name = name;
         this.category = category;
         this.owner = owner;

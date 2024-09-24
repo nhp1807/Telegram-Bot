@@ -46,7 +46,25 @@ public class UserRepository {
         return user;
     }
 
-    // Tìm user theo id
+    public User findUserById(Long id){
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        User user = null;
+        try {
+            session.beginTransaction();
+            user = session.get(User.class, id);
+            session.getTransaction().commit();
+        } catch (Exception e) {
+            if (session.getTransaction() != null) {
+                session.getTransaction().rollback();
+            }
+            e.printStackTrace();
+        } finally {
+            session.close();
+        }
+        return user;
+    }
+
+    // Tìm user theo id telegram
     public User findUserByIdTelegram(String idTelegram) {
         Session session = HibernateUtil.getSessionFactory().openSession();
         User user = null;

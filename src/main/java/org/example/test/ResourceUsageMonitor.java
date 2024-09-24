@@ -35,7 +35,7 @@ public class ResourceUsageMonitor {
         double cpuLoad = osBean.getProcessCpuLoad() * 100;
 
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("token", "6ee6f133-d55f-4296-a4a1-2aa4caeb72fa");
+        jsonObject.put("token", "95473ec6-05aa-43c2-b12f-ecd89fa9560a");
         JSONObject jsonData = new JSONObject();
         jsonData.put("memory", usedMemorySize);
         jsonData.put("cpu", cpuLoad);
