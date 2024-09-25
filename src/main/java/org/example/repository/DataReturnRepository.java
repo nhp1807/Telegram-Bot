@@ -28,4 +28,11 @@ public class DataReturnRepository {
 
         return dataReturn;
     }
+
+    public static void main(String[] args) {
+        DataReturnRepository dataReturnRepository = new DataReturnRepository();
+        DataReturn dataReturn = dataReturnRepository.getLatestDataReturn(1L);
+        Long timeLapse = System.currentTimeMillis() - dataReturn.getCreatedAt();
+        System.out.println(timeLapse/60000);
+    }
 }

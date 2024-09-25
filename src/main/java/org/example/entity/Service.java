@@ -7,10 +7,13 @@ import lombok.Setter;
 import jakarta.persistence.*;
 import lombok.experimental.FieldDefaults;
 import org.example.enums.Category;
+import org.example.repository.DataReturnRepository;
 import org.json.JSONObject;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Setter
@@ -18,7 +21,7 @@ import java.util.Set;
 @Entity
 @Table(name = "service")
 @FieldDefaults(level = lombok.AccessLevel.PRIVATE)
-public class Service {
+public class Service implements Runnable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
@@ -44,39 +47,22 @@ public class Service {
     @Column(name = "warning_duration")
     Long warningDuration;
 
-    @ManyToMany(
-            mappedBy = "services",
-//            cascade = {CascadeType.PERSIST, CascadeType.MERGE},
-            fetch = FetchType.EAGER)
+    @ManyToMany(mappedBy = "services", fetch = FetchType.EAGER)
     Set<User> users = new HashSet<>();
 
-    @OneToMany(
-            mappedBy = "service",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true,
-            fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     Set<Field> fields = new HashSet<>();
 
-    @OneToMany(
-            mappedBy = "service",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true,
-            fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     Set<SentWarning> sentWarnings = new HashSet<>();
 
-    @OneToMany(
-            mappedBy = "service",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true,
-            fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     Set<SentMessage> sentMessages = new HashSet<>();
 
-    @OneToMany(
-            mappedBy = "service",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true,
-            fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     Set<DataReturn> dataReturns = new HashSet<>();
+
+    private volatile boolean stopTask = false; // Cờ để dừng luồng
 
     public Service() {
     }
@@ -142,17 +128,7 @@ public class Service {
 
     @Override
     public String toString() {
-        return "Service{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", category=" + category +
-                ", token='" + token + '\'' +
-                ", owner='" + owner + '\'' +
-                ", createdAt=" + createdAt +
-                ", updatedAt=" + updatedAt +
-                ", users=" + users +
-                ", fields=" + fields +
-                '}';
+        return "Service{" + "id=" + id + ", name='" + name + '\'' + ", category=" + category + ", token='" + token + '\'' + ", owner='" + owner + '\'' + ", createdAt=" + createdAt + ", updatedAt=" + updatedAt + ", users=" + users + ", fields=" + fields + '}';
     }
 
     public JSONObject toJson() {
@@ -164,7 +140,45 @@ public class Service {
         jsonObject.put("owner", owner);
         jsonObject.put("created_at", createdAt);
         jsonObject.put("updated_at", updatedAt);
-        jsonObject.put("warning_duration", warningDuration);
         return jsonObject;
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (!stopTask) {
+                checkAndExecuteTask(); // Kiểm tra điều kiện
+                Thread.sleep(60000); // Kiểm tra mỗi 1 phút
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Dừng luồng khi có ngắt
+        }
+    }
+
+    public void stopTask() {
+        this.stopTask = true; // Cờ để dừng luồng
+    }
+
+    public void checkAndExecuteTask() {
+        if (warningDuration > 0) {
+            DataReturnRepository dataReturnRepository = new DataReturnRepository();
+            DataReturn dataReturn = dataReturnRepository.getLatestDataReturn(id);
+
+            long currentTime = System.currentTimeMillis();
+
+            if (dataReturn != null) {
+                long timeElapsed = (currentTime - dataReturn.getCreatedAt()) / 1000 / 60; // Tính thời gian đã trôi qua theo phút
+
+                if (timeElapsed >= warningDuration) {
+                    executeTask(); // Thực hiện nhiệm vụ nếu quá thời gian cảnh báo
+                }
+            } else {
+                System.out.println("Service: " + name + " chưa có DataReturn nào.");
+            }
+        }
+    }
+
+    public void executeTask() {
+        System.out.println("Thực hiện nhiệm vụ cho Service: " + name + " vào lúc " + LocalDate.now());
     }
 }

@@ -19,7 +19,7 @@ public class ResourceUsageMonitor {
         while(true) {
             try {
                 sendPostRequest("http://localhost:8080/api/data/send", displayResourceUsage(osBean).toString());
-                Thread.sleep(10000);
+                Thread.sleep(20000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -71,6 +71,21 @@ public class ResourceUsageMonitor {
             // Kiểm tra mã phản hồi từ server
             int responseCode = conn.getResponseCode();
             System.out.println("Response Code: " + responseCode);
+
+            // Đọc phản hồi từ server
+            if (responseCode == HttpURLConnection.HTTP_OK) { // nếu server phản hồi thành công
+                try (java.io.BufferedReader br = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder response = new StringBuilder();
+                    String responseLine;
+                    while ((responseLine = br.readLine()) != null) {
+                        response.append(responseLine.trim());
+                    }
+                    System.out.println("Response Body: " + response.toString());
+                }
+            } else {
+                System.out.println("POST request failed with response code: " + responseCode);
+            }
 
             // Đóng kết nối
             conn.disconnect();
