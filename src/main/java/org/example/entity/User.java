@@ -36,6 +36,9 @@ public class User {
     )
     Set<Service> services = new HashSet<>();
 
+//    @OneToMany(mappedBy = "owner", fetch = FetchType.LAZY)
+//    Set<Service> ownedServices = new HashSet<>();
+
     public User() {
     }
 
@@ -53,6 +56,16 @@ public class User {
     public void removeEmail(Email email) {
         emails.remove(email);
         email.setUser(null);  // Hủy quan hệ với User
+    }
+
+    public void addService(Service service) {
+        services.add(service);
+        service.getUsers().add(this);  // Ensure bidirectional relationship
+    }
+
+    public void removeService(Service service) {
+        services.remove(service);
+        service.getUsers().remove(this);
     }
 }
 

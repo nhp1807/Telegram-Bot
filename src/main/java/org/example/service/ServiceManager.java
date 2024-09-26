@@ -1,6 +1,7 @@
 package org.example.service;
 
 import org.example.entity.Service;
+import org.example.repository.ServiceRepository;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +36,8 @@ public class ServiceManager {
 
     public void restartService(Long serviceId) {
         removeService(serviceId);
-        Service service = services.get(serviceId);
+        ServiceRepository serviceRepository = new ServiceRepository();
+        Service service = serviceRepository.findById(serviceId);
         if (service != null) {
             addService(service);
             System.out.println("Đã khởi động lại Service: " + service.getName());

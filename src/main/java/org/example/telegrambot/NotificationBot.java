@@ -42,20 +42,20 @@ public class NotificationBot extends TelegramLongPollingBot {
         }
     }
 
-    public void checkInput(String messageText, String chatId){
-        if (messageText.equals("/start")){
+    public void checkInput(String messageText, String chatId) {
+        if (messageText.equals("/start")) {
             sendMessage("Bạn đã bắt đầu nhận thông báo từ bot!", chatId);
             sendMessage("Sử dụng /help để được hỗ trợ", chatId);
             sendMessage("Sử dụng /add_email để thêm email đăng ký Budibase", chatId);
-        } else if (messageText.equals("/help")){
+        } else if (messageText.equals("/help")) {
             sendMessage(showHelp(), chatId);
-        } else if (messageText.equals("/remove_email")){
+        } else if (messageText.equals("/remove_email")) {
             sendMessage("Hãy nhập email cần xóa", chatId);
             userCommands.put(chatId, "DELETE_EMAIL");
-        } else if (messageText.equals("/add_email")){
+        } else if (messageText.equals("/add_email")) {
             sendMessage("Hãy nhập email để đăng ký Budibase", chatId);
             userCommands.put(chatId, "ADD_EMAIL");
-        } else if (messageText.equals("/list_email")){
+        } else if (messageText.equals("/list_email")) {
             User user = userRepository.findUserByIdTelegram(chatId);
             List<Email> emails = user.getEmails().stream().toList();
             StringBuilder sb = new StringBuilder();
@@ -64,11 +64,18 @@ public class NotificationBot extends TelegramLongPollingBot {
                 sb.append(email.getEmailAddress()).append("\n");
             }
             sendMessage(sb.toString(), chatId.toString());
-        } else if (messageText.contains("@")){
+        } else if (messageText.contains("@")) {
             processEmailInput(chatId, messageText);
+        } else if (messageText.equals("/token")) {
+            sendMessage("Token của bạn: " + chatId, chatId);
+            userCommands.put(chatId, "GET_SERVICE_TOKEN");
         } else {
             sendMessage("Nội dung không hợp lệ!", chatId);
         }
+    }
+
+    public void getServiceToken(String chatId, String serviceName) {
+
     }
 
     public void processEmailInput(String chatId, String emailAddress) {
@@ -128,7 +135,7 @@ public class NotificationBot extends TelegramLongPollingBot {
         return sb.toString();
     }
 
-//    @Override
+    //    @Override
     public void sendMessage(String text, String chatId) {
         SendMessage message = new SendMessage();
         message.setText(text);

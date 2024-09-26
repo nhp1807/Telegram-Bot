@@ -8,12 +8,13 @@ import jakarta.persistence.*;
 import lombok.experimental.FieldDefaults;
 import org.example.enums.Category;
 import org.example.repository.DataReturnRepository;
+import org.example.repository.UserRepository;
+import org.example.telegrambot.BotSingleton;
+import org.example.telegrambot.NotificationBot;
 import org.json.JSONObject;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 @Setter
@@ -37,6 +38,9 @@ public class Service implements Runnable {
 
     @Column(name = "owner", nullable = false)
     Long owner;
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "owner_id", nullable = false)
+//    User owner;
 
     @Column(name = "created_at", nullable = false)
     Long createdAt;
@@ -75,6 +79,14 @@ public class Service implements Runnable {
         this.updatedAt = updatedAt;
         this.warningDuration = warningDuration;
     }
+
+//    public Service(String name, Category category, Long createdAt, Long updatedAt, Long warningDuration) {
+//        this.name = name;
+//        this.category = category;
+//        this.createdAt = createdAt;
+//        this.updatedAt = updatedAt;
+//        this.warningDuration = warningDuration;
+//    }
 
     public void addUser(User user) {
         users.add(user);
@@ -132,6 +144,8 @@ public class Service implements Runnable {
     }
 
     public JSONObject toJson() {
+        UserRepository userRepository = new UserRepository();
+        User user = userRepository.findUserById(owner);
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", id);
         jsonObject.put("name", name);
@@ -148,7 +162,7 @@ public class Service implements Runnable {
         try {
             while (!stopTask) {
                 checkAndExecuteTask(); // Kiểm tra điều kiện
-                Thread.sleep(60000); // Kiểm tra mỗi 1 phút
+                Thread.sleep(30000); // Kiểm tra mỗi 30 giây
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Dừng luồng khi có ngắt
@@ -179,6 +193,11 @@ public class Service implements Runnable {
     }
 
     public void executeTask() {
+        NotificationBot bot = BotSingleton.getInstance();
+        for (User u : users) {
+            System.out.println("Sent warning to user: " + u.getIdTelegram());
+            bot.sendMessage("Service \"" + name + "\" đã vượt quá thời gian cảnh báo.", u.getIdTelegram());
+        }
         System.out.println("Thực hiện nhiệm vụ cho Service: " + name + " vào lúc " + LocalDate.now());
     }
 }

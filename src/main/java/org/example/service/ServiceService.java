@@ -33,8 +33,6 @@ public class ServiceService {
     private static DataReturnRepository dataReturnRepository = new DataReturnRepository();
     private static CheckBounderyService checkBounderyService = new CheckBounderyService();
     private static NotificationBot bot = BotSingleton.getInstance();
-    private static ExecutorService executorService = Executors.newCachedThreadPool(); // Sử dụng CachedThreadPool để quản lý nhiều luồng linh hoạt
-    private static Map<Long, Future<?>> runningServices = new HashMap<>(); // Lưu các service đang chạy
     private static ServiceManager serviceManager = new ServiceManager();
 
     /**
@@ -106,7 +104,9 @@ public class ServiceService {
 
             transaction.commit();
 
-            serviceManager.addService(service);
+            if (warningDuration > 0) {
+                serviceManager.addService(service);
+            }
 
             jsonResponse.put("message", "Service created successfully.");
             jsonResponse.put("status", true);
@@ -149,7 +149,7 @@ public class ServiceService {
         try {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
-            String userEmail = jsonBody.getString("user");
+            String userEmail = jsonBody.getString("request_user");
 
             Long id = Long.valueOf(request.params(":id"));
             Service service = serviceRepository.findById(id);
@@ -185,6 +185,66 @@ public class ServiceService {
         }
     }
 
+    public static Object updateService(Request request, Response response){
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        JSONObject jsonResponse = new JSONObject();
+
+        try {
+            String body = request.body();
+            JSONObject jsonBody = new JSONObject(body);
+            Long id = jsonBody.getLong("id");
+            String userEmail = jsonBody.getString("request_user");
+            String category = jsonBody.getString("category");
+            String name = jsonBody.getString("name");
+            Long updatedAt = System.currentTimeMillis();
+
+            Service service = serviceRepository.findById(id);
+
+            if (service == null) {
+                return NotFoundObject.serviceNotFound(response).body();
+            }
+
+            if (!checkOwner(service, userEmail)) {
+                return NotFoundObject.userNotOwner(response).body();
+            }
+
+            service.setCategory(Category.valueOf(category));
+            service.setName(name);
+            service.setUpdatedAt(updatedAt);
+
+
+            session.update(service);
+
+            transaction.commit();
+
+            jsonResponse.put("message", "Service updated successfully.");
+            jsonResponse.put("status", true);
+            JSONObject serviceJson = new JSONObject()
+                    .put("name", service.getName())
+                    .put("category", service.getCategory().toString())
+                    .put("token", service.getToken())
+                    .put("owner", service.getOwner())
+                    .put("created_at", service.getCreatedAt())
+                    .put("warning_duration", service.getWarningDuration());
+
+            jsonResponse.put("service", serviceJson);
+
+            response.body(jsonResponse.toString());
+            response.status(200);
+
+            return response.body();
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            log.error("Error updating service", e);
+            throw e;
+        } finally {
+            session.close();
+        }
+    }
+
     /**
      * Turn on/off warning duration
      *
@@ -200,7 +260,7 @@ public class ServiceService {
         try {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
-            String userEmail = jsonBody.getString("user");
+            String userEmail = jsonBody.getString("request_user");
             Long id = jsonBody.getLong("id");
             Boolean warning_enable = jsonBody.getBoolean("warning_enable");
             JSONObject warning_duration = jsonBody.getJSONObject("warning_duration");
@@ -295,19 +355,6 @@ public class ServiceService {
 
             serviceJson.put("members", members);
 
-            DataReturn dataReturn = dataReturnRepository.getLatestDataReturn(service.getId());
-            if (dataReturn == null) {
-                serviceJson.put("last_sent", "No data sent.");
-                serviceArray.put(serviceJson);
-                continue;
-            }
-
-            Long lastSent = System.currentTimeMillis() - dataReturnRepository.getLatestDataReturn(service.getId()).getCreatedAt();
-            // Convert to hours and minutes
-            Long hours = lastSent / 3600000;
-            Long minutes = (lastSent % 3600000) / 60000;
-            serviceJson.put("last_sent", hours + " hours " + minutes + " minutes");
-
             JSONArray fields = new JSONArray();
             for (Field field : service.getFields()) {
                 JSONObject fieldJson = new JSONObject();
@@ -335,11 +382,21 @@ public class ServiceService {
             serviceJson.put("warning_duration", warningDurationJson);
             serviceJson.put("fields", fields);
 
+            DataReturn dataReturn = dataReturnRepository.getLatestDataReturn(service.getId());
+            if (dataReturn == null) {
+                serviceJson.put("last_sent", "No data sent.");
+                serviceArray.put(serviceJson);
+                continue;
+            }
 
+            Long lastSent = System.currentTimeMillis() - dataReturnRepository.getLatestDataReturn(service.getId()).getCreatedAt();
+            // Convert to hours and minutes
+            Long hours = lastSent / 3600000;
+            Long minutes = (lastSent % 3600000) / 60000;
+            serviceJson.put("last_sent", hours + " hours " + minutes + " minutes");
 
             serviceArray.put(serviceJson);
         }
-
 
         jsonResponse.put("message", "List of services.");
         jsonResponse.put("status", true);
@@ -365,7 +422,7 @@ public class ServiceService {
 
         String body = request.body();
         JSONObject jsonBody = new JSONObject(body);
-        String userEmail = jsonBody.getString("user");
+        String userEmail = jsonBody.getString("request_user");
 
         Long id = Long.parseLong(request.params(":id"));
         Service service = session.get(Service.class, id);
@@ -447,7 +504,7 @@ public class ServiceService {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
             Long id = jsonBody.getLong("id");
-            String userEmail = jsonBody.getString("user");
+            String userEmail = jsonBody.getString("request_user");
             JSONObject field = jsonBody.getJSONObject("field");
 
             Service service = serviceRepository.findById(id);
@@ -493,7 +550,7 @@ public class ServiceService {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
             Long id = jsonBody.getLong("id");
-            String userEmail = jsonBody.getString("user");
+            String userEmail = jsonBody.getString("request_user");
             String member = jsonBody.getString("member");
 
             Service service = serviceRepository.findById(id);
@@ -580,8 +637,8 @@ public class ServiceService {
                     }
                     SafeBoundery safeBoundery = field.getSafeBoundery();
 
-                    if (!checkBounderyService.checkBoundery(safeBoundery, fieldValue)) {
-                        String warningMessage = "Dữ liệu \"" + field.getName() + " = " + fieldValue + "\" nằm ngoài biên an toàn.";
+                    if (checkBounderyService.checkBoundery(safeBoundery, fieldValue)) {
+                        String warningMessage = "Dữ liệu \"" + field.getName() + " = " + fieldValue + "\" của service \"" + service.getName() + "\" nằm ngoài biên an toàn.";
 
                         SentWarning sentWarning = new SentWarning(warningMessage, System.currentTimeMillis(), service);
                         service.addSentWarning(sentWarning);
@@ -638,7 +695,7 @@ public class ServiceService {
         try {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
-            String userEmail = jsonBody.getString("user");
+            String userEmail = jsonBody.getString("request_user");
 
             Long id = Long.valueOf(request.params(":id"));
             Service service = serviceRepository.findById(id);
@@ -697,7 +754,7 @@ public class ServiceService {
         try {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
-            String userEmail = jsonBody.getString("user");
+            String userEmail = jsonBody.getString("request_user");
 
             Long id = Long.valueOf(request.params(":id"));
             Service service = serviceRepository.findById(id);
@@ -754,7 +811,7 @@ public class ServiceService {
             String body = request.body();
             JSONObject jsonBody = new JSONObject(body);
             Long id = jsonBody.getLong("id");
-            String userEmail = jsonBody.getString("user");
+            String userEmail = jsonBody.getString("request_user");
             String message = jsonBody.getString("message");
 
             Service service = serviceRepository.findById(id);
@@ -812,6 +869,9 @@ public class ServiceService {
 
     public static boolean checkOwner(Service service, String userEmail) {
         User user = userRepository.findUserByEmail(userEmail);
+        if (user == null) {
+            return false;
+        }
         return service.getOwner() == user.getId();
     }
 
@@ -821,6 +881,9 @@ public class ServiceService {
             listMembers.add(user.getId());
         }
         User user = userRepository.findUserByEmail(userEmail);
+        if (user == null) {
+            return false;
+        }
         return listMembers.contains(user.getId());
     }
 
@@ -833,6 +896,7 @@ public class ServiceService {
         Spark.post("/api/service/add/field", ServiceService::addField);
         Spark.post("/api/service/add/member", ServiceService::addMember);
         Spark.post("/api/service/update/toggle-warning", ServiceService::updateWarningDuration);
+        Spark.post("/api/service/update", ServiceService::updateService);
         Spark.delete("/api/service/delete/:id", ServiceService::deleteService);
         Spark.post("/api/data/send", ServiceService::sendData);
         Spark.get("/api/data/get/:id", ServiceService::getLatestData);
@@ -842,7 +906,9 @@ public class ServiceService {
         // Start all service
 //        List<Service> services = serviceRepository.getAllServices();
 //        for (Service service : services) {
-//            serviceManager.addService(service);
+//            if (service.getWarningDuration() > 0) {
+//                serviceManager.addService(service);
+//            }
 //        }
     }
 }
